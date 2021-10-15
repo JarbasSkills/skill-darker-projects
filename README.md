@@ -7,6 +7,7 @@ Darker Projects skill for OCP
 search http://darkerprojects.com by voice!
 
 ![](./gui.png)
+![](./gui2.png)
 
 ## Examples
 

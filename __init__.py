@@ -18,15 +18,13 @@ class DarkerProjectsSkill(OVOSCommonPlaybackSkill):
     def calc_score(self, phrase, match, idx=0, base_score=0):
         # idx represents the order from search
         score = base_score - idx  # - 1% as we go down the results list
-
-        score += 100 * fuzzy_match(phrase.lower(), match.title.lower(),
+        score += 100 * fuzzy_match(phrase.lower(), match.lower(),
                                    strategy=MatchStrategy.TOKEN_SET_RATIO)
-
         return min(100, score)
 
     # common play
     @ocp_search()
-    def search_audiobooks(self, phrase, media_type):
+    def search_episodes(self, phrase, media_type):
         # match the request media_type
         base_score = 0
         if media_type == MediaType.AUDIOBOOK:
@@ -41,22 +39,34 @@ class DarkerProjectsSkill(OVOSCommonPlaybackSkill):
 
         loyalbooks = DarkerProjects()
 
-        # see if collection title was requested
-        for tag in loyalbooks.scrap_tags():
-            score = fuzzy_match(phrase.lower(),
-                                tag.lower(),
-                                strategy=MatchStrategy.TOKEN_SET_RATIO)
-            if score >= 0.65:
-                col = loyalbooks.get_collection(tag)
-                score = min(100, base_score + score * 100)
-                yield self._book2ocp(col, score)
-
         # free search
         results = loyalbooks.search_audiobooks(title=phrase)
         for idx, book in enumerate(results):
-            score = self.calc_score(phrase, book, idx=idx,
+            score = self.calc_score(phrase, book.title, idx=idx,
                                     base_score=base_score)
             yield self._book2ocp(book, score)
+
+    @ocp_search()
+    def search_collections(self, phrase, media_type):
+        # match the request media_type
+        base_score = 0
+        if media_type == MediaType.AUDIOBOOK:
+            base_score += 25
+        else:
+            base_score -= 15
+
+        if self.voc_match(phrase, "darkerproject"):
+            # explicitly requested skill
+            base_score += 60
+            phrase = self.remove_voc(phrase, "darkerproject")
+
+        loyalbooks = DarkerProjects()
+        # see if collection title was requested
+        for tag in loyalbooks.scrap_tags():
+            score = self.calc_score(phrase, tag, base_score=base_score)
+            if score >= 85:
+                col = loyalbooks.get_collection(tag)
+                yield self._book2ocp(col, score)
 
     def _book2ocp(self, book, score):
         author = "Darker Projects"
